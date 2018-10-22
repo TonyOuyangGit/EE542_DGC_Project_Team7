@@ -14,6 +14,8 @@ from sklearn.linear_model import LassoCV
 from sklearn.linear_model import Lasso
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
+from sklearn.multiclass import OutputCodeClassifier
+from sklearn.svm import LinearSVC
 
 from utils import logger
 #def lassoSelection(X,y,)
@@ -30,11 +32,12 @@ def lassoSelection(X_train, y_train, n):
 	X_transform = sfm.transform(X_train)
 	n_features = X_transform.shape[1]
 	
-	#print(n_features)
+	print(n_features)
 	while n_features > n:
 		sfm.threshold += 0.01
 		X_transform = sfm.transform(X_train)
 		n_features = X_transform.shape[1]
+		print(n_features)
 	features = [index for index,value in enumerate(sfm.get_support()) if value == True  ]
 	logger.info("selected features are {}".format(features))
 	return features
@@ -61,33 +64,36 @@ def model_fit_predict(X_train,X_test,y_train,y_test):
 	from sklearn.metrics import accuracy_score
 	from sklearn.metrics import f1_score
 	from sklearn.metrics import recall_score
-	models = {
-		'LogisticRegression': LogisticRegression(),
-		'ExtraTreesClassifier': ExtraTreesClassifier(),
-		'RandomForestClassifier': RandomForestClassifier(),
-    	'AdaBoostClassifier': AdaBoostClassifier(),
-    	'GradientBoostingClassifier': GradientBoostingClassifier(),
-    	'SVC': SVC()
-	}
-	tuned_parameters = {
-		'LogisticRegression':{'C': [1, 10]},
-		'ExtraTreesClassifier': { 'n_estimators': [16, 32] },
-		'RandomForestClassifier': { 'n_estimators': [16, 32] },
-    	'AdaBoostClassifier': { 'n_estimators': [16, 32] },
-    	'GradientBoostingClassifier': { 'n_estimators': [16, 32], 'learning_rate': [0.8, 1.0] },
-    	'SVC': {'kernel': ['rbf'], 'C': [1, 10], 'gamma': [0.001, 0.0001]},
-	}
+	from sklearn.tree import DecisionTreeClassifier 
+	# models = {
+	# 	'LogisticRegression': LogisticRegression(),
+	# 	'ExtraTreesClassifier': ExtraTreesClassifier(),
+	# 	'RandomForestClassifier': RandomForestClassifier(),
+ #    	'AdaBoostClassifier': AdaBoostClassifier(),
+ #    	'GradientBoostingClassifier': GradientBoostingClassifier(),
+ #    	'SVC': SVC()
+	# }
+	# tuned_parameters = {
+	# 	'LogisticRegression':{'C': [1, 10]},
+	# 	'ExtraTreesClassifier': { 'n_estimators': [16, 32] },
+	# 	'RandomForestClassifier': { 'n_estimators': [16, 32] },
+ #    	'AdaBoostClassifier': { 'n_estimators': [16, 32] },
+ #    	'GradientBoostingClassifier': { 'n_estimators': [16, 32], 'learning_rate': [0.8, 1.0] },
+ #    	'SVC': {'kernel': ['rbf'], 'C': [1, 10], 'gamma': [0.001, 0.0001]},
+	# }
 	scores= {}
-	for key in models:
-		clf = GridSearchCV(models[key], tuned_parameters[key], scoring=None,  refit=True, cv=10)
-		clf.fit(X_train,y_train)
-		y_test_predict = clf.predict(X_test)
-		precision = precision_score(y_test, y_test_predict)
-		accuracy = accuracy_score(y_test, y_test_predict)
-		f1 = f1_score(y_test, y_test_predict)
-		recall = recall_score(y_test, y_test_predict)
-		specificity = specificity_score(y_test, y_test_predict)
-		scores[key] = [precision,accuracy,f1,recall,specificity]
+	# for key in models:
+	# 	clf = GridSearchCV(models[key], tuned_parameters[key], scoring=None,  refit=True, cv=10)
+	clf = SVC(kernel = 'linear', C = 1)
+	clf.fit(X_train,y_train)
+	y_test_predict = clf.predict(X_test)
+	precision = precision_score(y_test, y_test_predict, average = 'micro')
+	accuracy = accuracy_score(y_test, y_test_predict)
+	f1 = f1_score(y_test, y_test_predict, average = 'micro')
+	recall = recall_score(y_test, y_test_predict, average = 'micro')
+	# specificity = specificity_score(y_test, y_test_predict)
+	print(accuracy)
+	scores["LogisticRegression"] = [precision,accuracy,f1,recall]
 	#print(scores)
 	return scores
 
@@ -105,7 +111,7 @@ def draw(scores):
 	f1_scores = []
 	recalls = []
 	categories = []
-	specificities = []
+	# specificities = []
 	N = len(scores)
 	ind = np.arange(N)  # set the x locations for the groups
 	width = 0.1        # the width of the bars
@@ -115,18 +121,18 @@ def draw(scores):
 		accuracies.append(scores[key][1])
 		f1_scores.append(scores[key][2])
 		recalls.append(scores[key][3])
-		specificities.append(scores[key][4])
+		# specificities.append(scores[key][4])
 
 	precision_bar = ax.bar(ind, precisions,width=0.1,color='b',align='center')
 	accuracy_bar = ax.bar(ind+1*width, accuracies,width=0.1,color='g',align='center')
 	f1_bar = ax.bar(ind+2*width, f1_scores,width=0.1,color='r',align='center')
 	recall_bar = ax.bar(ind+3*width, recalls,width=0.1,color='y',align='center')
-	specificity_bar = ax.bar(ind+4*width,specificities,width=0.1,color='purple',align='center')
+	# specificity_bar = ax.bar(ind+4*width,specificities,width=0.1,color='purple',align='center')
 
 	print(categories)
 	ax.set_xticks(np.arange(N))
 	ax.set_xticklabels(categories)
-	ax.legend((precision_bar[0], accuracy_bar[0],f1_bar[0],recall_bar[0],specificity_bar[0]), ('precision', 'accuracy','f1','sensitivity','specificity'))
+	ax.legend((precision_bar[0], accuracy_bar[0],f1_bar[0],recall_bar[0]), ('precision', 'accuracy','f1','sensitivity'))
 	ax.grid()
 	plt.show()
 
@@ -135,7 +141,7 @@ if __name__ == '__main__':
 
 	data_dir ="/Users/Lxc/Desktop/Cloud_Computing/lab10/"
 
-	data_file = data_dir + "miRNA_matrix.csv"
+	data_file = data_dir + "miRNA_matrix_label.csv"
 
 	df = pd.read_csv(data_file)
 	# print(df)
@@ -150,18 +156,21 @@ if __name__ == '__main__':
 	# split the data to train and test set
 	X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.3, random_state=0)
 	
-
-	#standardize the data.
+	# print(y_test)
+	# X, y = X_train, y_train
+	# clf = OutputCodeClassifier(LinearSVC(random_state=0), code_size=2, random_state=0)
+	# print(clf.fit(X, y).predict(X_test)[:10])
+	# standardize the data.
 	scaler = StandardScaler()
 	scaler.fit(X_train)
 	X_train = scaler.transform(X_train)
 	X_test = scaler.transform(X_test)
 
 	# check the distribution of tumor and normal sampels in traing and test data set.
-	logger.info("Percentage of tumor cases in training set is {}".format(sum(y_train)/len(y_train)))
-	logger.info("Percentage of tumor cases in test set is {}".format(sum(y_test)/len(y_test)))
+	# logger.info("Percentage of tumor cases in training set is {}".format(sum(y_train)/len(y_train)))
+	# logger.info("Percentage of tumor cases in test set is {}".format(sum(y_test)/len(y_test)))
 	
-	n = 7
+	n = 100
 	feaures_columns = lassoSelection(X_train, y_train, n)
 
 
@@ -169,7 +178,7 @@ if __name__ == '__main__':
 	scores = model_fit_predict(X_train[:,feaures_columns],X_test[:,feaures_columns],y_train,y_test)
 
 	draw(scores)
-	#lasso cross validation
+	# lasso cross validation
 	# lassoreg = Lasso(random_state=0)
 	# alphas = np.logspace(-4, -0.5, 30)
 	# tuned_parameters = [{'alpha': alphas}]
