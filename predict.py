@@ -1,4 +1,5 @@
 # copyright: yueshi@usc.edu
+# modified: yutongou@usc.edu shujiayy@usc.edu xiangchl@usc.edu
 import pandas as pd 
 import hashlib
 import os 
@@ -6,16 +7,19 @@ from utils import logger
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import numpy as np
-
-
+import matplotlib.pyplot as plt
+from itertools import cycle
+from sklearn import svm, datasets
+from sklearn.metrics import roc_curve, auc
+from sklearn.model_selection import train_test_split
+from scipy import interp
+from sklearn.preprocessing import label_binarize
 from sklearn.feature_selection import SelectFromModel
 from sklearn import datasets
 from sklearn.linear_model import LassoCV
 from sklearn.linear_model import Lasso
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
-from sklearn.multiclass import OutputCodeClassifier
-from sklearn.svm import LinearSVC
 
 from utils import logger
 #def lassoSelection(X,y,)
@@ -32,13 +36,12 @@ def lassoSelection(X_train, y_train, n):
 	X_transform = sfm.transform(X_train)
 	n_features = X_transform.shape[1]
 	
-	print(n_features)
+	#print(n_features)
 	while n_features > n:
 		sfm.threshold += 0.01
 		X_transform = sfm.transform(X_train)
 		n_features = X_transform.shape[1]
-		print(n_features)
-	features = [index for index,value in enumerate(sfm.get_support()) if value == True  ]
+	features = [index for index,value in enumerate(sfm.get_support()) if value == True]
 	logger.info("selected features are {}".format(features))
 	return features
 
@@ -64,37 +67,46 @@ def model_fit_predict(X_train,X_test,y_train,y_test):
 	from sklearn.metrics import accuracy_score
 	from sklearn.metrics import f1_score
 	from sklearn.metrics import recall_score
-	from sklearn.tree import DecisionTreeClassifier 
-	# models = {
-	# 	'LogisticRegression': LogisticRegression(),
-	# 	'ExtraTreesClassifier': ExtraTreesClassifier(),
-	# 	'RandomForestClassifier': RandomForestClassifier(),
- #    	'AdaBoostClassifier': AdaBoostClassifier(),
- #    	'GradientBoostingClassifier': GradientBoostingClassifier(),
- #    	'SVC': SVC()
-	# }
-	# tuned_parameters = {
-	# 	'LogisticRegression':{'C': [1, 10]},
-	# 	'ExtraTreesClassifier': { 'n_estimators': [16, 32] },
-	# 	'RandomForestClassifier': { 'n_estimators': [16, 32] },
- #    	'AdaBoostClassifier': { 'n_estimators': [16, 32] },
- #    	'GradientBoostingClassifier': { 'n_estimators': [16, 32], 'learning_rate': [0.8, 1.0] },
- #    	'SVC': {'kernel': ['rbf'], 'C': [1, 10], 'gamma': [0.001, 0.0001]},
-	# }
+	models = {
+		'LogisticRegression': LogisticRegression(),
+	}	
+	tuned_parameters = {
+		'LogisticRegression':{'random_state': 0,
+								'solver' : 'lbfgs',
+								'multi_class' : 'multinomial'
+								}
+	}
 	scores= {}
 	# for key in models:
-	# 	clf = GridSearchCV(models[key], tuned_parameters[key], scoring=None,  refit=True, cv=10)
-	clf = SVC(kernel = 'linear', C = 1)
-	clf.fit(X_train,y_train)
+		# clf = GridSearchCV(models[key], tuned_parameters[key], scoring=None,  refit=True, cv=10)
+	clf = LogisticRegression().fit(X_train, y_train)
+	# clf.fit(X_train,y_train)
 	y_test_predict = clf.predict(X_test)
-	precision = precision_score(y_test, y_test_predict, average = 'micro')
+	y_score = clf.decision_function(X_test)
+
+	precision_micro = precision_score(y_test, y_test_predict, average = "micro")
+	precision_marco = precision_score(y_test, y_test_predict, average = "macro")
+	precision_weighted = precision_score(y_test, y_test_predict, average = "weighted")
+	print("precision_micro: " + str(precision_micro))
+	print("precision_marco: " + str(precision_marco))
+	print("precision_weighted: " + str(precision_weighted))
 	accuracy = accuracy_score(y_test, y_test_predict)
-	f1 = f1_score(y_test, y_test_predict, average = 'micro')
-	recall = recall_score(y_test, y_test_predict, average = 'micro')
-	# specificity = specificity_score(y_test, y_test_predict)
-	print(accuracy)
-	scores["LogisticRegression"] = [precision,accuracy,f1,recall]
-	#print(scores)
+	print("accuracy: " + str(accuracy))
+	f1_micro = f1_score(y_test, y_test_predict, average = "micro")
+	f1_macro = f1_score(y_test, y_test_predict, average = "macro")
+	f1_weighted = f1_score(y_test, y_test_predict, average = "weighted")
+	print("f1_micro: " + str(f1_micro))
+	print("f1_macro: " + str(f1_macro))
+	print("f1_weighted: " + str(f1_weighted))
+	recall_micro = recall_score(y_test, y_test_predict, average = "micro")
+	recall_macro = recall_score(y_test, y_test_predict, average = "macro")
+	recall_weighted = recall_score(y_test, y_test_predict, average = "weighted")
+	print("recall_micro: " + str(recall_micro))
+	print("recall_macro: " + str(recall_macro))
+	print("recall_weighted: " + str(recall_weighted))
+
+	scores = [precision_marco,accuracy,f1_macro,recall_macro]
+
 	return scores
 
 
@@ -110,28 +122,17 @@ def draw(scores):
 	accuracies =[]
 	f1_scores = []
 	recalls = []
-	categories = []
-	# specificities = []
 	N = len(scores)
-	ind = np.arange(N)  # set the x locations for the groups
+	ind = 0  # set the x locations for the groups
 	width = 0.1        # the width of the bars
-	for key in scores:
-		categories.append(key)
-		precisions.append(scores[key][0])
-		accuracies.append(scores[key][1])
-		f1_scores.append(scores[key][2])
-		recalls.append(scores[key][3])
-		# specificities.append(scores[key][4])
-
+	precisions.append(scores[0])
+	accuracies.append(scores[1])
+	f1_scores.append(scores[2])
+	recalls.append(scores[3])
 	precision_bar = ax.bar(ind, precisions,width=0.1,color='b',align='center')
-	accuracy_bar = ax.bar(ind+1*width, accuracies,width=0.1,color='g',align='center')
-	f1_bar = ax.bar(ind+2*width, f1_scores,width=0.1,color='r',align='center')
-	recall_bar = ax.bar(ind+3*width, recalls,width=0.1,color='y',align='center')
-	# specificity_bar = ax.bar(ind+4*width,specificities,width=0.1,color='purple',align='center')
-
-	print(categories)
-	ax.set_xticks(np.arange(N))
-	ax.set_xticklabels(categories)
+	accuracy_bar = ax.bar(ind+2*width, accuracies,width=0.1,color='g',align='center')
+	f1_bar = ax.bar(ind+4*width, f1_scores,width=0.1,color='r',align='center')
+	recall_bar = ax.bar(ind+6*width, recalls,width=0.1,color='y',align='center')
 	ax.legend((precision_bar[0], accuracy_bar[0],f1_bar[0],recall_bar[0]), ('precision', 'accuracy','f1','sensitivity'))
 	ax.grid()
 	plt.show()
@@ -139,15 +140,16 @@ def draw(scores):
 if __name__ == '__main__':
 
 
-	data_dir ="/Users/Lxc/Desktop/Cloud_Computing/lab10/"
+	data_dir ="/Users/Tony/Desktop/tmp/"
 
-	data_file = data_dir + "miRNA_matrix_label.csv"
+	data_file = data_dir + "RNA_matrix_mixedType_ToPredict.csv"
 
 	df = pd.read_csv(data_file)
 	# print(df)
 	y_data = df.pop('label').values
 
-	df.pop('file_id')
+	# df.pop('file_id')
+	# df.pop('Unnamed: 0')
 
 	columns =df.columns
 	#print (columns)
@@ -156,29 +158,42 @@ if __name__ == '__main__':
 	# split the data to train and test set
 	X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.3, random_state=0)
 	
-	# print(y_test)
-	# X, y = X_train, y_train
-	# clf = OutputCodeClassifier(LinearSVC(random_state=0), code_size=2, random_state=0)
-	# print(clf.fit(X, y).predict(X_test)[:10])
+
 	# standardize the data.
 	scaler = StandardScaler()
 	scaler.fit(X_train)
 	X_train = scaler.transform(X_train)
 	X_test = scaler.transform(X_test)
 
-	# check the distribution of tumor and normal sampels in traing and test data set.
-	# logger.info("Percentage of tumor cases in training set is {}".format(sum(y_train)/len(y_train)))
-	# logger.info("Percentage of tumor cases in test set is {}".format(sum(y_test)/len(y_test)))
 	
 	n = 100
 	feaures_columns = lassoSelection(X_train, y_train, n)
-
-
+	# feaures_columns = [49, 217, 240, 285, 287, 514, 1860]
+	# feaures_columns = [9, 13, 49, 54, 71, 74, 78, 96, 107, 
+	# 144, 149, 163, 179, 180, 185, 187, 191, 194, 195, 203, 204, 
+	# 205, 217, 226, 240, 242, 248, 252, 253, 254, 269, 276, 282, 
+	# 284, 285, 287, 301, 309, 316, 325, 328, 338, 342, 353, 356,
+	# 464, 487, 490, 495, 498, 500, 505, 514, 518, 538, 588, 594, 
+	# 631, 714, 764, 767, 768, 795, 856, 894, 897, 957, 967, 991, 
+	# 1006, 1056, 1066, 1101, 1106, 1121, 1125, 1214, 1285, 1299, 
+	# 1309, 1330, 1342, 1371, 1388, 1462, 1527, 1530, 1577, 1632, 
+	# 1637, 1655, 1689, 1722, 1742, 1768, 1791, 1834, 1838, 1848, 1860]
+	# print(X_train[1:,feaures_columns])
+	# print(X_test[1:,feaures_columns])
+	# scores = [0.8813116656993616,0.8544249290249643,0.8447784315662945,0.8797101098582462]
+	
+	# Multi classification for mixed label cancer
+	# [1586, 1870, 1916, 2493, 2693, 3041, 3638, 3671, 3978, 4609, 4815, 4957, 5726, 5813, 6306, 
+	# 6367, 6445, 6682, 7244, 7568, 8154, 8498, 8741, 8767, 8801, 9280, 9706, 9876, 10323, 10963, 
+	# 11959, 12016, 12155, 13610, 13874, 14402, 15347, 15930, 16321, 16356, 16851, 17547, 17778, 
+	# 18941, 19042, 19731, 19834, 21040, 21635, 21696, 21807, 22640, 24315, 24762, 25003, 25091, 
+	# 25581, 25670, 25972, 26397, 26782, 27442, 27852, 27915, 28226, 28545, 28926, 29428, 29857, 
+	# 29921, 30684, 31017, 31292, 31772, 31790]
 
 	scores = model_fit_predict(X_train[:,feaures_columns],X_test[:,feaures_columns],y_train,y_test)
-
+	# scores = model_fit_predict(X_train, X_test, y_train, y_test)
 	draw(scores)
-	# lasso cross validation
+	#lasso cross validation
 	# lassoreg = Lasso(random_state=0)
 	# alphas = np.logspace(-4, -0.5, 30)
 	# tuned_parameters = [{'alpha': alphas}]

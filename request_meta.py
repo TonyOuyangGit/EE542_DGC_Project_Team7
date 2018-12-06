@@ -3,34 +3,38 @@ import json
 import pandas as pd
 import os
 
+file_fileds = []
+case_fileds = []
 def retrieveFileMeta(file_ids,outputfile):
     '''
-
+    
     Get the tsv metadata for the list of case_ids
     Args:
         file_ids: numpy array of file_ids
         outputfile: the output filename
 
     '''
-
+    global file_fileds
     fd = open(outputfile,'w')
     cases_endpt = 'https://api.gdc.cancer.gov/files'
 
     # The 'fields' parameter is passed as a comma-separated string of single names.
-    fields = [
+    file_fileds = [
         "file_id",
         "file_name",
         "cases.submitter_id",
-        "cases.case_id",
-        "data_category",
-        "data_type",
+        "cases.demographic.ethnicity",
+        "cases.demographic.gender",
         "cases.samples.tumor_descriptor",
         "cases.samples.tissue_type",
         "cases.samples.sample_type",
-        "cases.samples.submitter_id",
-        "cases.samples.sample_id",
-        "cases.samples.portions.analytes.aliquots.aliquot_id",
-        "cases.samples.portions.analytes.aliquots.submitter_id"
+        "cases.demographic.race",
+        "cases.demographic.state",
+        "cases.diagnoses.age_at_diagnosis",
+        "cases.exposures.alcohol_intensity",
+        "cases.exposures.cigarettes_per_day",
+        "cases.exposures.years_smoked",
+        "cases.project.primary_site"
         ]
 
     filters = {
@@ -41,14 +45,14 @@ def retrieveFileMeta(file_ids,outputfile):
         }
     }
     #print(filters)
-    fields = ','.join(fields)
+    file_fileds = ','.join(file_fileds)
 
     params = {
         "filters" : filters,
-        "fields": fields,
+        "fields": file_fileds,
         "format": "TSV",
         "pretty": "true",
-        "size": 1000
+        "size": 3000
     }
     # print (params)
     #print (filters)
@@ -89,7 +93,7 @@ def retrieveCaseMeta(file_ids,outputfile):
         "expand" : "diagnoses,demographic,exposures",
         "format": "TSV",
         "pretty": "true",
-        "size": 1000
+        "size": 1500
     }
     # print (params)
     #print (filters)
@@ -166,8 +170,8 @@ def curlCaseMeta(case_ids,payloadfile,outputfile):
 
 if __name__ == '__main__':
 
-    data_dir = "/Users/Lxc/Desktop/Cloud_Computing/lab10/"
-    filename = data_dir+"file_case_id_DNA.csv"
+    data_dir = "/Users/Tony/Desktop/tmp/"
+    filename = data_dir+"file_case_OtherType.csv"
     
     
     df = pd.read_csv(filename)
@@ -175,11 +179,11 @@ if __name__ == '__main__':
     case_ids = df.case_id.values
     # print(case_ids)
     
-    fileids_meta_outfile = data_dir + "files_meta.tsv"
-    caseids_meta_outfile = data_dir + "cases_meta.tsv"
+    fileids_meta_outfile = data_dir + "files_meta_OtherType.tsv"
+    # caseids_meta_outfile = data_dir + "cases_meta_Breast.tsv"
     # python request method
     retrieveFileMeta(file_ids,fileids_meta_outfile)
-    retrieveCaseMeta(case_ids,caseids_meta_outfile)
+    # retrieveCaseMeta(case_ids,caseids_meta_outfile)
 
 
 

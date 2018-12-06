@@ -32,9 +32,9 @@ if __name__ == '__main__':
 
 
 	# modify the input file path when use it.
-	data_dir = "/Users/Lxc/Desktop/Cloud_Computing/lab10/"
-	inputFile = data_dir + "files.2018-10-17.json"
-	outputFile =  data_dir + 'file_case_id_DNA.csv'
+	data_dir = "/Users/Tony/Desktop/tmp/"
+	inputFile = data_dir + "files.OtherType.json"
+	outputFile =  data_dir + 'file_case_OtherType.csv'
 	processFile(inputFile, outputFile)
 
 
